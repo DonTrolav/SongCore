@@ -461,22 +461,27 @@ namespace SongCore
                             StoreLoadedBeatmapSaveData();
                         }
 
+                        List<string> additionalLevelPacks = [Path.Combine(_customWIPPath, "Cache")];
+                        additionalLevelPacks.AddRange(SeparateSongFolders.Select(f => f.SongFolderEntry.Path));
+                        additionalLevelPacks.AddRange(SeparateSongFolders.Where(f => f.CacheFolder is not null).Select(f => Path.Combine(f.CacheFolder.SongFolderEntry.Path, "Cache")));
                         var folders = songFolders
-                            .Concat(SeparateSongFolders
-                                .Select(f => Path.GetFullPath(f.SongFolderEntry.Path))
-                                .Select(p => new DirectoryInfo(p))
+                            .Concat(additionalLevelPacks
+                                .Select(p => new DirectoryInfo(Path.GetFullPath(p)))
                                 .Where(d => d.Exists)
                                 .SelectMany(d => d.GetDirectories()
                                     .Where(d => d.Exists && !d.Attributes.HasFlag(FileAttributes.Hidden))
                                     .Select(d => d.FullName)))
                             .ToHashSet();
+                        List<string> songsToRemove = new();
                         foreach (var loadedSaveData in _customLevelLoader._loadedBeatmapSaveData.Values)
                         {
                             if (!folders.Contains(loadedSaveData.customLevelFolderInfo.folderPath))
                             {
-                                DeleteSingleSong(loadedSaveData.customLevelFolderInfo.folderPath, false);
+                                songsToRemove.Add(loadedSaveData.customLevelFolderInfo.folderPath);
                             }
                         }
+                        foreach (string folderPath in songsToRemove)
+                            DeleteSingleSong(folderPath, false);
                     }
 
                     Parallel.ForEach(songFolders, parallelOptions, folder =>
